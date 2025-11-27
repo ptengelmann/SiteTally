@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import QRScanner from '@/components/QRScanner';
 import AssetStatus from '@/components/AssetStatus';
 import ActionForm from '@/components/ActionForm';
 import SuccessScreen from '@/components/SuccessScreen';
-
-// Temporary: Using Tom Worker's ID for testing
-// In production, this would come from auth
-const TEMP_USER_ID = 'bda51c0b-2d51-4212-ad32-9dc5d43cec7a';
 
 type AppState = 'scanning' | 'loading' | 'review' | 'success' | 'error';
 
@@ -26,10 +25,20 @@ interface Asset {
 }
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   const [appState, setAppState] = useState<AppState>('scanning');
   const [asset, setAsset] = useState<Asset | null>(null);
   const [lastAction, setLastAction] = useState<'checkout' | 'checkin' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
   const handleScanSuccess = useCallback(async (qrCodeId: string) => {
     setAppState('loading');
@@ -71,6 +80,20 @@ export default function Home() {
     setError(null);
   }, []);
 
+  // Show loading while checking auth
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -79,9 +102,22 @@ export default function Home() {
           <h1 className="text-xl font-bold tracking-tight">
             <span className="text-yellow-400">Site</span>Tally
           </h1>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            Online
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="text-xs text-gray-400 hover:text-white"
+            >
+              Dashboard
+            </Link>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="hidden sm:inline">{session.user?.name}</span>
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="text-xs text-red-400 hover:text-red-300"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -147,12 +183,12 @@ export default function Home() {
         )}
 
         {/* Review State */}
-        {appState === 'review' && asset && (
+        {appState === 'review' && asset && session.user?.id && (
           <>
             <AssetStatus asset={asset} onBack={resetToScanning} />
             <ActionForm
               asset={asset}
-              userId={TEMP_USER_ID}
+              userId={session.user.id}
               onSuccess={handleActionSuccess}
               onError={handleActionError}
             />
@@ -192,7 +228,7 @@ export default function Home() {
       <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-800 py-3 px-4">
         <div className="max-w-md mx-auto flex items-center justify-between text-xs text-gray-500">
           <span>SiteTally v1.0</span>
-          <span>Field Worker Mode</span>
+          <span>Logged in as {session.user?.email}</span>
         </div>
       </footer>
     </div>

@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { auth } from '@/lib/auth';
 import { CheckinRequest, ApiResponse, Asset } from '@/types';
 
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<Asset>>> {
+  // Check authentication
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized - Please log in' },
+      { status: 401 }
+    );
+  }
+
   const client = await pool.connect();
 
   try {
     const body: CheckinRequest = await request.json();
-    const { qr_code_id, user_id, notes } = body;
+    const { qr_code_id, notes } = body;
+    // Use authenticated user's ID instead of body user_id
+    const user_id = session.user.id;
 
     // Validate required fields
-    if (!qr_code_id || !user_id) {
+    if (!qr_code_id) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: qr_code_id and user_id are required' },
+        { success: false, error: 'Missing required field: qr_code_id' },
         { status: 400 }
       );
     }

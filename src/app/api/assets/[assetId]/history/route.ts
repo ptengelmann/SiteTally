@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { auth } from '@/lib/auth';
 import { ApiResponse } from '@/types';
 
 interface LogEntry {
@@ -26,6 +27,15 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ assetId: string }> }
 ): Promise<NextResponse<ApiResponse<AssetHistory>>> {
+  // Check authentication
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized - Please log in' },
+      { status: 401 }
+    );
+  }
+
   try {
     const { assetId } = await params;
 

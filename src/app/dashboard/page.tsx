@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface Asset {
@@ -53,11 +55,21 @@ const emptyAssetForm = {
 };
 
 export default function Dashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   const [assets, setAssets] = useState<Asset[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
   // Modal states
   const [modalType, setModalType] = useState<ModalType>('none');
@@ -245,6 +257,20 @@ export default function Dashboard() {
 
   const assetsToPrint = assets.filter(a => selectedForPrint.has(a.asset_id));
 
+  // Show loading while checking auth
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -256,15 +282,26 @@ export default function Dashboard() {
             </h1>
             <span className="text-xs bg-blue-600 px-2 py-1 rounded font-medium">Dashboard</span>
           </div>
-          <Link
-            href="/"
-            className="text-sm text-gray-400 hover:text-white flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h2M4 12h2m10 0a8 8 0 11-16 0 8 8 0 0116 0z" />
-            </svg>
-            Scan Mode
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="text-sm text-gray-400 hover:text-white flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h2M4 12h2m10 0a8 8 0 11-16 0 8 8 0 0116 0z" />
+              </svg>
+              Scan Mode
+            </Link>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="hidden sm:inline">{session.user?.name}</span>
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="text-xs text-red-400 hover:text-red-300"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 

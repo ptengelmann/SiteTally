@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { auth } from '@/lib/auth';
 import { ApiResponse } from '@/types';
 
 interface AssetWithUser {
@@ -30,6 +31,15 @@ interface AssetsResponse {
 
 // GET - Fetch all assets
 export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<AssetsResponse>>> {
+  // Check authentication
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized - Please log in' },
+      { status: 401 }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -121,6 +131,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
 // POST - Create new asset
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
+  // Check authentication
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized - Please log in' },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { asset_name, qr_code_id, description, purchase_cost, current_location } = body;

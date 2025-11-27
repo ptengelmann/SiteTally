@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { auth } from '@/lib/auth';
 import { ApiResponse, Asset } from '@/types';
 
 interface AssetWithUser extends Asset {
@@ -10,6 +11,15 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ qrCodeId: string }> }
 ): Promise<NextResponse<ApiResponse<AssetWithUser>>> {
+  // Check authentication
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized - Please log in' },
+      { status: 401 }
+    );
+  }
+
   try {
     const { qrCodeId } = await params;
 
