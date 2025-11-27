@@ -129,7 +129,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
   }
 }
 
-// POST - Create new asset
+// POST - Create new asset (managers only)
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   // Check authentication
   const session = await auth();
@@ -137,6 +137,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     return NextResponse.json(
       { success: false, error: 'Unauthorized - Please log in' },
       { status: 401 }
+    );
+  }
+
+  // Check if user is a manager
+  if (session.user.role !== 'manager') {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden - Manager access required' },
+      { status: 403 }
     );
   }
 

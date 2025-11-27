@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         try {
           const result = await pool.query(
-            `SELECT user_id, email, password_hash, first_name, last_name, is_active
+            `SELECT user_id, email, password_hash, first_name, last_name, is_active, role
              FROM users WHERE email = $1`,
             [credentials.email]
           );
@@ -50,6 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: user.user_id,
             email: user.email,
             name: `${user.first_name} ${user.last_name}`,
+            role: user.role,
           };
         } catch (error) {
           console.error('Auth error:', error);
@@ -62,12 +63,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
     },

@@ -45,7 +45,7 @@ export async function GET(
   }
 }
 
-// PUT - Update asset
+// PUT - Update asset (managers only)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ assetId: string }> }
@@ -56,6 +56,14 @@ export async function PUT(
     return NextResponse.json(
       { success: false, error: 'Unauthorized - Please log in' },
       { status: 401 }
+    );
+  }
+
+  // Check if user is a manager
+  if (session.user.role !== 'manager') {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden - Manager access required' },
+      { status: 403 }
     );
   }
 
@@ -113,7 +121,7 @@ export async function PUT(
   }
 }
 
-// DELETE - Soft delete asset
+// DELETE - Soft delete asset (managers only)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ assetId: string }> }
@@ -124,6 +132,14 @@ export async function DELETE(
     return NextResponse.json(
       { success: false, error: 'Unauthorized - Please log in' },
       { status: 401 }
+    );
+  }
+
+  // Check if user is a manager
+  if (session.user.role !== 'manager') {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden - Manager access required' },
+      { status: 403 }
     );
   }
 

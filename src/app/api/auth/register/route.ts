@@ -43,11 +43,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // Default company ID (in production, this would be handled differently)
     const default_company_id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-    // Create user
+    // Create user (new users default to 'worker' role)
     const result = await pool.query(
-      `INSERT INTO users (company_id, first_name, last_name, email, phone_number, password_hash, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
-       RETURNING user_id, email, first_name, last_name`,
+      `INSERT INTO users (company_id, first_name, last_name, email, phone_number, password_hash, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, 'worker', TRUE)
+       RETURNING user_id, email, first_name, last_name, role`,
       [default_company_id, first_name, last_name, email.toLowerCase(), phone_number || null, password_hash]
     );
 
