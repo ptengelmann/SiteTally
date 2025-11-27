@@ -472,6 +472,20 @@ export default function Dashboard() {
   const assetsToPrint = assets.filter(a => selectedForPrint.has(a.asset_id));
   const isManager = session?.user?.role === 'manager';
 
+  // Calculate overdue assets (checked out for more than 7 days)
+  const OVERDUE_DAYS = 7;
+  const overdueAssets = assets.filter(asset => {
+    if (asset.current_status !== 'CHECKED_OUT' || !asset.last_checkout_time) return false;
+    const checkoutDate = new Date(asset.last_checkout_time);
+    const daysSinceCheckout = Math.floor((Date.now() - checkoutDate.getTime()) / (1000 * 60 * 60 * 24));
+    return daysSinceCheckout >= OVERDUE_DAYS;
+  });
+
+  const getDaysOverdue = (checkoutTime: string) => {
+    const checkoutDate = new Date(checkoutTime);
+    return Math.floor((Date.now() - checkoutDate.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   // Show loading while checking auth
   if (status === 'loading') {
     return (
@@ -546,6 +560,47 @@ export default function Dashboard() {
             <div className="bg-gray-800 rounded-xl p-4 border border-yellow-800">
               <p className="text-yellow-400 text-sm">Maintenance</p>
               <p className="text-3xl font-bold text-yellow-400">{summary.maintenance}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Overdue Alert */}
+        {overdueAssets.length > 0 && (
+          <div className="mb-6 bg-red-900/30 border border-red-500/50 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-red-400">
+                  {overdueAssets.length} Overdue Item{overdueAssets.length !== 1 ? 's' : ''}
+                </h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  Equipment checked out for more than {OVERDUE_DAYS} days
+                </p>
+                <div className="mt-3 space-y-2">
+                  {overdueAssets.slice(0, 3).map(asset => (
+                    <div key={asset.asset_id} className="flex items-center justify-between bg-red-900/20 rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-white">{asset.asset_name}</p>
+                        <p className="text-xs text-gray-400">
+                          {asset.checked_out_by_name} • {asset.current_location}
+                        </p>
+                      </div>
+                      <span className="text-xs bg-red-500/30 text-red-300 px-2 py-1 rounded">
+                        {getDaysOverdue(asset.last_checkout_time!)} days
+                      </span>
+                    </div>
+                  ))}
+                  {overdueAssets.length > 3 && (
+                    <p className="text-xs text-gray-500 text-center pt-1">
+                      +{overdueAssets.length - 3} more overdue items
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

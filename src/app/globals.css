@@ -57,6 +57,22 @@ html, body {
   animation: bounce-once 0.5s ease-in-out;
 }
 
+/* Slide up animation for install prompt */
+@keyframes slide-up {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
 /* High contrast focus states for accessibility */
 input:focus, button:focus, textarea:focus {
   outline: 2px solid #facc15;
