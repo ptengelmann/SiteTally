@@ -62,9 +62,20 @@ interface ActivityLog {
   qr_code_id: string;
 }
 
+interface User {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 type StatusFilter = 'ALL' | 'AVAILABLE' | 'CHECKED_OUT' | 'MAINTENANCE';
-type ModalType = 'none' | 'add' | 'edit' | 'history' | 'print';
-type TabType = 'assets' | 'activity';
+type ModalType = 'none' | 'add' | 'edit' | 'history' | 'print' | 'addUser' | 'editUser';
+type TabType = 'assets' | 'activity' | 'team';
 
 const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
   AVAILABLE: { bg: 'bg-green-900/30', text: 'text-green-400', dot: 'bg-green-500' },
@@ -81,6 +92,15 @@ const emptyAssetForm = {
   current_location: '',
   current_status: 'AVAILABLE',
   category: 'Uncategorized',
+};
+
+const emptyUserForm = {
+  email: '',
+  password: '',
+  first_name: '',
+  last_name: '',
+  phone: '',
+  role: 'worker',
 };
 
 export default function Dashboard() {
@@ -100,6 +120,14 @@ export default function Dashboard() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'ALL' | 'CHECK_OUT' | 'CHECK_IN'>('ALL');
+
+  // Users state
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userForm, setUserForm] = useState(emptyUserForm);
+  const [userFormError, setUserFormError] = useState<string | null>(null);
+  const [userFormLoading, setUserFormLoading] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -175,6 +203,27 @@ export default function Dashboard() {
     }
   }, [activeTab, fetchActivity]);
 
+  const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const response = await fetch('/api/users');
+      const data = await response.json();
+      if (data.success) {
+        setUsers(data.data.users);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'team' && session?.user?.role === 'manager') {
+      fetchUsers();
+    }
+  }, [activeTab, session?.user?.role, fetchUsers]);
+
   const fetchAssetHistory = async (asset: Asset) => {
     setSelectedAsset(asset);
     setModalType('history');
@@ -216,8 +265,106 @@ export default function Dashboard() {
   const closeModal = () => {
     setModalType('none');
     setSelectedAsset(null);
+    setSelectedUser(null);
     setAssetHistory([]);
     setFormError(null);
+    setUserFormError(null);
+  };
+
+  // User modal functions
+  const openAddUserModal = () => {
+    setUserForm(emptyUserForm);
+    setUserFormError(null);
+    setModalType('addUser');
+  };
+
+  const openEditUserModal = (user: User) => {
+    setSelectedUser(user);
+    setUserForm({
+      email: user.email,
+      password: '',
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone || '',
+      role: user.role,
+    });
+    setUserFormError(null);
+    setModalType('editUser');
+  };
+
+  const handleSubmitUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserFormLoading(true);
+    setUserFormError(null);
+
+    try {
+      const isEdit = modalType === 'editUser';
+      const url = isEdit ? `/api/users/${selectedUser?.user_id}` : '/api/users';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const body: Record<string, string> = {
+        first_name: userForm.first_name,
+        last_name: userForm.last_name,
+        phone: userForm.phone || '',
+        role: userForm.role,
+      };
+
+      if (!isEdit) {
+        body.email = userForm.email;
+        body.password = userForm.password;
+      } else if (userForm.password) {
+        body.password = userForm.password;
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        setUserFormError(data.error || 'Failed to save user');
+        return;
+      }
+
+      closeModal();
+      fetchUsers();
+    } catch {
+      setUserFormError('Network error. Please try again.');
+    } finally {
+      setUserFormLoading(false);
+    }
+  };
+
+  const handleToggleUserActive = async (user: User) => {
+    const action = user.is_active ? 'deactivate' : 'reactivate';
+    if (!confirm(`Are you sure you want to ${action} ${user.first_name} ${user.last_name}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/users/${user.user_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: user.first_name,
+          last_name: user.last_name,
+          is_active: !user.is_active,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        fetchUsers();
+      } else {
+        alert(data.error || `Failed to ${action} user`);
+      }
+    } catch {
+      alert('Network error. Please try again.');
+    }
   };
 
   const handleSubmitAsset = async (e: React.FormEvent) => {
@@ -425,6 +572,18 @@ export default function Dashboard() {
           >
             Activity
           </button>
+          {isManager && (
+            <button
+              onClick={() => setActiveTab('team')}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'team'
+                  ? 'bg-yellow-500 text-black'
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Team
+            </button>
+          )}
         </div>
 
         {/* Assets Tab Content */}
@@ -706,6 +865,107 @@ export default function Dashboard() {
             </div>
           </>
         )}
+
+        {/* Team Tab Content (Managers Only) */}
+        {activeTab === 'team' && isManager && (
+          <>
+            {/* Add User Button */}
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-gray-400">
+                {users.filter(u => u.is_active).length} active team members
+              </p>
+              <button
+                onClick={openAddUserModal}
+                className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-medium rounded-lg flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Team Member
+              </button>
+            </div>
+
+            {/* Users List */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-20 text-gray-400">
+                  <p>No team members yet</p>
+                  <button onClick={openAddUserModal} className="mt-4 text-yellow-400 hover:underline">
+                    Add your first team member
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-700">
+                  {users.map((user) => (
+                    <div
+                      key={user.user_id}
+                      className={`p-4 hover:bg-gray-700/30 transition-colors ${!user.is_active ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+                            user.role === 'manager'
+                              ? 'bg-purple-900/50 text-purple-400'
+                              : 'bg-blue-900/50 text-blue-400'
+                          }`}>
+                            {user.first_name[0]}{user.last_name[0]}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-white">
+                                {user.first_name} {user.last_name}
+                              </p>
+                              <span className={`text-xs px-2 py-0.5 rounded ${
+                                user.role === 'manager'
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-gray-600 text-gray-300'
+                              }`}>
+                                {user.role === 'manager' ? 'Manager' : 'Worker'}
+                              </span>
+                              {!user.is_active && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-red-900/50 text-red-400">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-400">{user.email}</p>
+                            {user.phone && (
+                              <p className="text-xs text-gray-500">{user.phone}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditUserModal(user)}
+                            className="text-gray-400 hover:text-white text-sm px-3 py-1"
+                          >
+                            Edit
+                          </button>
+                          {user.user_id !== session?.user?.id && (
+                            <button
+                              onClick={() => handleToggleUserActive(user)}
+                              className={`text-sm px-3 py-1 ${
+                                user.is_active
+                                  ? 'text-red-400 hover:text-red-300'
+                                  : 'text-green-400 hover:text-green-300'
+                              }`}
+                            >
+                              {user.is_active ? 'Deactivate' : 'Reactivate'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Add/Edit Modal */}
@@ -948,6 +1208,136 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit User Modal */}
+      {(modalType === 'addUser' || modalType === 'editUser') && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 print:hidden">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md border border-gray-700">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="font-bold text-lg">
+                {modalType === 'addUser' ? 'Add Team Member' : 'Edit Team Member'}
+              </h3>
+              <button onClick={closeModal} className="p-2 hover:bg-gray-700 rounded-lg">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmitUser} className="p-4 space-y-4">
+              {userFormError && (
+                <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm">
+                  {userFormError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    First Name <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={userForm.first_name}
+                    onChange={(e) => setUserForm({ ...userForm, first_name: e.target.value })}
+                    placeholder="John"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Last Name <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={userForm.last_name}
+                    onChange={(e) => setUserForm({ ...userForm, last_name: e.target.value })}
+                    placeholder="Smith"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Email <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  placeholder="john@company.com"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                  required={modalType === 'addUser'}
+                  disabled={modalType === 'editUser'}
+                />
+                {modalType === 'editUser' && (
+                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Password {modalType === 'addUser' && <span className="text-red-400">*</span>}
+                </label>
+                <input
+                  type="password"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  placeholder={modalType === 'editUser' ? 'Leave blank to keep current' : 'Min 6 characters'}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                  required={modalType === 'addUser'}
+                  minLength={modalType === 'addUser' ? 6 : undefined}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={userForm.phone}
+                  onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                  placeholder="07700 123456"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Role</label>
+                <select
+                  value={userForm.role}
+                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                >
+                  <option value="worker">Worker</option>
+                  <option value="manager">Manager</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Managers can add assets, view team, and manage users
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={userFormLoading}
+                  className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-medium rounded-lg disabled:opacity-50"
+                >
+                  {userFormLoading ? 'Saving...' : modalType === 'addUser' ? 'Add Member' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
