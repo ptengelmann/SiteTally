@@ -1,15 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export default function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showPrompt, setShowPrompt] = useState(false);
+interface InstallContextType {
+  canInstall: boolean;
+  isInstalled: boolean;
+  triggerInstall: () => Promise<void>;
+}
+
+const InstallContext = createContext<InstallContextType>({
+  canInstall: false,
+  isInstalled: false,
+  triggerInstall: async () => {},
+});
+
+export const useInstall = () => useContext(InstallContext);
+
+// Global variable to store the deferred prompt
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+
+export function InstallProvider({ children }: { children: ReactNode }) {
+  const [canInstall, setCanInstall] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
@@ -21,14 +37,14 @@ export default function InstallPrompt() {
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowPrompt(true);
+      globalDeferredPrompt = e as BeforeInstallPromptEvent;
+      setCanInstall(true);
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
-      setShowPrompt(false);
-      setDeferredPrompt(null);
+      setCanInstall(false);
+      globalDeferredPrompt = null;
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -40,31 +56,48 @@ export default function InstallPrompt() {
     };
   }, []);
 
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
+  const triggerInstall = async () => {
+    if (!globalDeferredPrompt) return;
 
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
+    await globalDeferredPrompt.prompt();
+    const { outcome } = await globalDeferredPrompt.userChoice;
 
     if (outcome === 'accepted') {
+      setCanInstall(false);
+    }
+    globalDeferredPrompt = null;
+  };
+
+  return (
+    <InstallContext.Provider value={{ canInstall, isInstalled, triggerInstall }}>
+      {children}
+    </InstallContext.Provider>
+  );
+}
+
+export default function InstallPrompt() {
+  const { canInstall, isInstalled, triggerInstall } = useInstall();
+  const [showPrompt, setShowPrompt] = useState(true);
+
+  // Don't auto-show after first dismiss in session
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('installPromptDismissed')) {
       setShowPrompt(false);
     }
-    setDeferredPrompt(null);
+  }, []);
+
+  const handleInstall = async () => {
+    await triggerInstall();
+    setShowPrompt(false);
   };
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    // Don't show again for this session
     sessionStorage.setItem('installPromptDismissed', 'true');
   };
 
-  // Don't show if already installed, no prompt available, or dismissed
-  if (isInstalled || !showPrompt || !deferredPrompt) {
-    return null;
-  }
-
-  // Check if dismissed this session
-  if (typeof window !== 'undefined' && sessionStorage.getItem('installPromptDismissed')) {
+  // Don't show if already installed, can't install, or dismissed
+  if (isInstalled || !canInstall || !showPrompt) {
     return null;
   }
 
