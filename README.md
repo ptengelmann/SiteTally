@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SiteTally
+
+**Mobile-first asset tracking for construction and field teams.**
+
+SiteTally helps construction companies, landscapers, and field service teams track their tools and equipment using QR codes. Scan to check out, scan to check in — it's that simple.
+
+## Features
+
+### Core Functionality
+- **QR Code Scanning** - Scan any asset's QR code to instantly check it in or out
+- **Real-time Status** - See what's available, checked out, or in maintenance at a glance
+- **Activity History** - Full audit trail of every check-in and check-out
+- **Asset Management** - Add, edit, and organize assets with categories
+
+### Team Management
+- **Role-based Access** - Managers can add assets and users; workers can check in/out
+- **User Management** - Add team members, assign roles, deactivate accounts
+- **Team Activity Feed** - See who checked out what and when
+
+### Mobile Experience
+- **PWA Support** - Install as a native app on iOS and Android
+- **Offline-Ready** - Works without internet connection
+- **Haptic Feedback** - Tactile confirmation on scan success
+- **Camera Integration** - Use your phone's camera as a QR scanner
+
+### Reporting & Alerts
+- **Overdue Alerts** - Dashboard warnings for items checked out too long (7+ days)
+- **CSV Export** - Export assets, activity, and team data for reporting
+- **QR Label Printing** - Print QR labels for your equipment
+
+## Tech Stack
+
+- **Frontend**: Next.js 16, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL (Neon)
+- **Authentication**: NextAuth.js v5 with credentials provider
+- **QR Scanning**: html5-qrcode library
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- PostgreSQL database (we use [Neon](https://neon.tech))
 
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/ptengelmann/SiteTally.git
+cd SiteTally
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Edit `.env.local` with your values:
+```
+DATABASE_URL=your_postgres_connection_string
+AUTH_SECRET=your_auth_secret
+NEXTAUTH_URL=http://localhost:3000
+```
 
-## Learn More
+4. Run database migrations:
+```bash
+npm run db:migrate
+```
 
-To learn more about Next.js, take a look at the following resources:
+5. Start the development server:
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Usage
 
-## Deploy on Vercel
+### For Managers
+1. Log in with manager credentials
+2. Add assets from the Dashboard → Assets tab → "Add Asset"
+3. Print QR labels and attach to your equipment
+4. Add team members from the Team tab
+5. Monitor activity and overdue items
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### For Workers
+1. Log in with worker credentials
+2. Scan QR codes to check equipment in/out
+3. Add location and notes when checking out
+4. View your activity history
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/           # API routes
+│   ├── dashboard/     # Dashboard page
+│   ├── login/         # Login page
+│   └── page.tsx       # Scan mode (home)
+├── components/        # React components
+├── lib/              # Utilities (auth, db)
+└── types/            # TypeScript types
+```
+
+## License
+
+MIT
+
+## Contributing
+
+This is a private project. For feature requests or bug reports, please contact the development team.
