@@ -49,8 +49,22 @@ interface LogEntry {
   user_name: string;
 }
 
+interface ActivityLog {
+  log_id: string;
+  action_type: string;
+  timestamp: string;
+  job_site_name: string | null;
+  notes: string | null;
+  user_name: string;
+  user_email: string;
+  asset_id: string;
+  asset_name: string;
+  qr_code_id: string;
+}
+
 type StatusFilter = 'ALL' | 'AVAILABLE' | 'CHECKED_OUT' | 'MAINTENANCE';
 type ModalType = 'none' | 'add' | 'edit' | 'history' | 'print';
+type TabType = 'assets' | 'activity';
 
 const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
   AVAILABLE: { bg: 'bg-green-900/30', text: 'text-green-400', dot: 'bg-green-500' },
@@ -78,6 +92,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('assets');
+
+  // Activity state
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<'ALL' | 'CHECK_OUT' | 'CHECK_IN'>('ALL');
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -124,6 +146,34 @@ export default function Dashboard() {
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
+
+  const fetchActivity = useCallback(async () => {
+    setActivityLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '100');
+      if (activityFilter !== 'ALL') {
+        params.set('action', activityFilter);
+      }
+
+      const response = await fetch(`/api/activity?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setActivityLogs(data.data.logs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch activity:', error);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [activityFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'activity') {
+      fetchActivity();
+    }
+  }, [activeTab, fetchActivity]);
 
   const fetchAssetHistory = async (asset: Asset) => {
     setSelectedAsset(asset);
@@ -353,33 +403,60 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Action Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search by name or QR code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {(['ALL', 'AVAILABLE', 'CHECKED_OUT', 'MAINTENANCE'] as StatusFilter[]).map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  statusFilter === status
-                    ? 'bg-yellow-500 text-black'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {status === 'ALL' ? 'All' : status === 'CHECKED_OUT' ? 'Out' : status.charAt(0) + status.slice(1).toLowerCase()}
-              </button>
-            ))}
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-gray-800 p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab('assets')}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'assets'
+                ? 'bg-yellow-500 text-black'
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            Assets
+          </button>
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'activity'
+                ? 'bg-yellow-500 text-black'
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            Activity
+          </button>
         </div>
+
+        {/* Assets Tab Content */}
+        {activeTab === 'assets' && (
+          <>
+            {/* Action Bar */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by name or QR code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {(['ALL', 'AVAILABLE', 'CHECKED_OUT', 'MAINTENANCE'] as StatusFilter[]).map((filterStatus) => (
+                  <button
+                    key={filterStatus}
+                    onClick={() => setStatusFilter(filterStatus)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      statusFilter === filterStatus
+                        ? 'bg-yellow-500 text-black'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {filterStatus === 'ALL' ? 'All' : filterStatus === 'CHECKED_OUT' ? 'Out' : filterStatus.charAt(0) + filterStatus.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 mb-6">
@@ -533,6 +610,102 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+          </>
+        )}
+
+        {/* Activity Tab Content */}
+        {activeTab === 'activity' && (
+          <>
+            {/* Activity Filter */}
+            <div className="flex gap-2 mb-6">
+              {(['ALL', 'CHECK_OUT', 'CHECK_IN'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setActivityFilter(filter)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activityFilter === filter
+                      ? 'bg-yellow-500 text-black'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {filter === 'ALL' ? 'All Activity' : filter === 'CHECK_OUT' ? 'Check Outs' : 'Check Ins'}
+                </button>
+              ))}
+            </div>
+
+            {/* Activity List */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+              {activityLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : activityLogs.length === 0 ? (
+                <div className="text-center py-20 text-gray-400">
+                  <p>No activity recorded yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-700">
+                  {activityLogs.map((log) => (
+                    <div
+                      key={log.log_id}
+                      className="p-4 hover:bg-gray-700/30 transition-colors"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          log.action_type === 'CHECK_OUT'
+                            ? 'bg-orange-900/50 text-orange-400'
+                            : 'bg-green-900/50 text-green-400'
+                        }`}>
+                          {log.action_type === 'CHECK_OUT' ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-white">
+                              <span className={log.action_type === 'CHECK_OUT' ? 'text-orange-400' : 'text-green-400'}>
+                                {log.action_type === 'CHECK_OUT' ? 'Checked out' : 'Checked in'}
+                              </span>
+                              {' '}
+                              <span className="text-gray-300">{log.asset_name}</span>
+                            </p>
+                            <span className="text-xs text-gray-500 flex-shrink-0">
+                              {formatDate(log.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 mt-1">
+                            by {log.user_name}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                            <span className="bg-gray-900 px-2 py-1 rounded font-mono">{log.qr_code_id}</span>
+                            {log.job_site_name && (
+                              <span className="flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                {log.job_site_name}
+                              </span>
+                            )}
+                          </div>
+                          {log.notes && (
+                            <p className="text-xs text-gray-500 mt-2 italic">&quot;{log.notes}&quot;</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Add/Edit Modal */}
