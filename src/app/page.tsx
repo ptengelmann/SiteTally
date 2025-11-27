@@ -41,6 +41,11 @@ export default function Home() {
   }, [status, router]);
 
   const handleScanSuccess = useCallback(async (qrCodeId: string) => {
+    // Haptic feedback on scan
+    if (navigator.vibrate) {
+      navigator.vibrate(100);
+    }
+
     setAppState('loading');
     setError(null);
 
@@ -49,6 +54,10 @@ export default function Home() {
       const data = await response.json();
 
       if (!data.success) {
+        // Error vibration pattern
+        if (navigator.vibrate) {
+          navigator.vibrate([100, 50, 100]);
+        }
         setError(data.error || 'Asset not found');
         setAppState('error');
         return;
@@ -57,18 +66,30 @@ export default function Home() {
       setAsset(data.data);
       setAppState('review');
     } catch {
+      // Error vibration pattern
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
       setError('Network error. Please check your connection.');
       setAppState('error');
     }
   }, []);
 
   const handleActionSuccess = useCallback((action: 'checkout' | 'checkin', updatedAsset: Asset) => {
+    // Success vibration - double tap
+    if (navigator.vibrate) {
+      navigator.vibrate([50, 100, 50]);
+    }
     setAsset(updatedAsset);
     setLastAction(action);
     setAppState('success');
   }, []);
 
   const handleActionError = useCallback((errorMessage: string) => {
+    // Error vibration pattern
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100]);
+    }
     setError(errorMessage);
     setAppState('error');
   }, []);

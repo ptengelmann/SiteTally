@@ -70,7 +70,7 @@ export async function PUT(
   try {
     const { assetId } = await params;
     const body = await request.json();
-    const { asset_name, description, purchase_cost, current_location, current_status } = body;
+    const { asset_name, description, purchase_cost, current_location, current_status, category } = body;
 
     // Validate required fields
     if (!asset_name) {
@@ -95,10 +95,11 @@ export async function PUT(
            description = $2,
            purchase_cost = $3,
            current_location = $4,
-           current_status = COALESCE($5, current_status)
-       WHERE asset_id = $6 AND is_active = TRUE
+           current_status = COALESCE($5, current_status),
+           category = COALESCE($6, category)
+       WHERE asset_id = $7 AND is_active = TRUE
        RETURNING *`,
-      [asset_name, description || null, purchase_cost || null, current_location || null, current_status || null, assetId]
+      [asset_name, description || null, purchase_cost || null, current_location || null, current_status || null, category || null, assetId]
     );
 
     if (result.rows.length === 0) {

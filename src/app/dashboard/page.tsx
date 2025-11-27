@@ -14,9 +14,23 @@ interface Asset {
   current_status: string;
   current_location: string | null;
   last_checkout_time: string | null;
+  category: string;
   checked_out_by_name: string | null;
   checked_out_by_email: string | null;
 }
+
+const CATEGORIES = [
+  'Uncategorized',
+  'Generators',
+  'Power Tools',
+  'Hand Tools',
+  'Ladders',
+  'Safety Equipment',
+  'Vehicles',
+  'Surveying',
+  'Lighting',
+  'Other',
+];
 
 interface Summary {
   total: number;
@@ -52,6 +66,7 @@ const emptyAssetForm = {
   purchase_cost: '',
   current_location: '',
   current_status: 'AVAILABLE',
+  category: 'Uncategorized',
 };
 
 export default function Dashboard() {
@@ -142,6 +157,7 @@ export default function Dashboard() {
       purchase_cost: asset.purchase_cost || '',
       current_location: asset.current_location || '',
       current_status: asset.current_status,
+      category: asset.category || 'Uncategorized',
     });
     setFormError(null);
     setModalType('edit');
@@ -174,6 +190,7 @@ export default function Dashboard() {
           purchase_cost: assetForm.purchase_cost ? parseFloat(assetForm.purchase_cost) : null,
           current_location: assetForm.current_location || null,
           current_status: isEdit ? assetForm.current_status : undefined,
+          category: assetForm.category,
         }),
       });
 
@@ -453,6 +470,7 @@ export default function Dashboard() {
                         )}
                         <td className="px-4 py-4">
                           <p className="font-medium text-white">{asset.asset_name}</p>
+                          <p className="text-xs text-blue-400">{asset.category}</p>
                           {asset.description && (
                             <p className="text-xs text-gray-500 truncate max-w-[200px]">{asset.description}</p>
                           )}
@@ -583,6 +601,18 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Category</label>
+                  <select
+                    value={assetForm.category}
+                    onChange={(e) => setAssetForm({ ...assetForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Purchase Cost</label>
                   <input
                     type="number"
@@ -593,16 +623,17 @@ export default function Dashboard() {
                     className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Location</label>
-                  <input
-                    type="text"
-                    value={assetForm.current_location}
-                    onChange={(e) => setAssetForm({ ...assetForm, current_location: e.target.value })}
-                    placeholder="e.g., Warehouse"
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
-                  />
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={assetForm.current_location}
+                  onChange={(e) => setAssetForm({ ...assetForm, current_location: e.target.value })}
+                  placeholder="e.g., Warehouse"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                />
               </div>
 
               {modalType === 'edit' && (

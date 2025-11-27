@@ -2,6 +2,20 @@
 
 import { useState } from 'react';
 
+// Common location presets for quick selection
+const LOCATION_PRESETS = [
+  { label: 'Select a preset location...', value: '' },
+  { label: 'Main Warehouse', value: 'Main Warehouse' },
+  { label: 'Site Office', value: 'Site Office' },
+  { label: 'Vehicle Bay', value: 'Vehicle Bay' },
+  { label: 'Tool Storage', value: 'Tool Storage' },
+  { label: 'North Site', value: 'North Site' },
+  { label: 'South Site', value: 'South Site' },
+  { label: 'East Site', value: 'East Site' },
+  { label: 'West Site', value: 'West Site' },
+  { label: 'Client Location', value: 'Client Location' },
+];
+
 interface Asset {
   asset_id: string;
   asset_name: string;
@@ -108,6 +122,28 @@ export default function ActionForm({ asset, userId, onSuccess, onError }: Action
 
           <div className="space-y-4">
             <div>
+              <label htmlFor="locationPreset" className="block text-sm font-medium text-gray-300 mb-2">
+                Quick Select Location
+              </label>
+              <select
+                id="locationPreset"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setJobSiteName(e.target.value);
+                  }
+                }}
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                disabled={isSubmitting}
+              >
+                {LOCATION_PRESETS.map((preset) => (
+                  <option key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label htmlFor="jobSite" className="block text-sm font-medium text-gray-300 mb-2">
                 Job Site Name <span className="text-red-400">*</span>
               </label>
@@ -116,7 +152,7 @@ export default function ActionForm({ asset, userId, onSuccess, onError }: Action
                 type="text"
                 value={jobSiteName}
                 onChange={(e) => setJobSiteName(e.target.value)}
-                placeholder="e.g., Downtown Project, Site Alpha"
+                placeholder="Or type a custom location..."
                 className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-lg"
                 disabled={isSubmitting}
               />

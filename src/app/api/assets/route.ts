@@ -14,6 +14,7 @@ interface AssetWithUser {
   last_checkout_time: string | null;
   is_active: boolean;
   created_at: string;
+  category: string;
   checked_out_by_name: string | null;
   checked_out_by_email: string | null;
 }
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
         a.last_checkout_time,
         a.is_active,
         a.created_at,
+        a.category,
         CASE
           WHEN a.last_checked_out_by_id IS NOT NULL AND a.current_status = 'CHECKED_OUT'
           THEN u.first_name || ' ' || u.last_name
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
   try {
     const body = await request.json();
-    const { asset_name, qr_code_id, description, purchase_cost, current_location } = body;
+    const { asset_name, qr_code_id, description, purchase_cost, current_location, category } = body;
 
     // Validate required fields
     if (!asset_name || !qr_code_id) {
@@ -174,10 +176,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     const result = await pool.query(
-      `INSERT INTO assets (asset_name, qr_code_id, description, purchase_cost, current_location, current_status)
-       VALUES ($1, $2, $3, $4, $5, 'AVAILABLE')
+      `INSERT INTO assets (asset_name, qr_code_id, description, purchase_cost, current_location, category, current_status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'AVAILABLE')
        RETURNING *`,
-      [asset_name, qr_code_id, description || null, purchase_cost || null, current_location || null]
+      [asset_name, qr_code_id, description || null, purchase_cost || null, current_location || null, category || 'Uncategorized']
     );
 
     return NextResponse.json({
